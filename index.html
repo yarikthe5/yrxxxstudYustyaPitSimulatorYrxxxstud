@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Симулятор за Юстю 🍻</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    /* М'яка, затишна палітра */
+    :root { 
+      --bg-dark: #2c3e50; /* М'який темний фон */
+      --panel-bg: #34495e; /* Фон панелей */
+      --accent-gold: #f1c40f; 
+      --accent-green: #2ecc71;
+      --accent-red: #e74c3c;
+      --text-light: #ecf0f1;
+      --border-wood: #8d6e63;
+    }
+    
+    * { box-sizing: border-box; user-select: none; }
+    
+    body { 
+      font-family: 'Press Start 2P', cursive; background-color: #1a1a1a; 
+      color: var(--text-light); margin: 0; padding: 0; 
+      display: flex; justify-content: center; height: 100vh; overflow: hidden;
+    }
+
+    /* Головний контейнер - імітація екрану телефону на ПК */
+    #app {
+      width: 100%; max-width: 500px; height: 100%; 
+      background-color: var(--bg-dark); position: relative;
+      display: flex; flex-direction: column; box-shadow: 0 0 20px rgba(0,0,0,0.8);
+    }
+
+    h1, h2, h3 { color: var(--accent-gold); text-align: center; font-size: 14px; margin-bottom: 15px; text-shadow: 2px 2px 0px #000; line-height: 1.4;}
+    p { font-size: 9px; line-height: 1.4; text-align: center; color: #bdc3c7;}
+
+    /* === СТАРТОВИЙ ЕКРАН === */
+    #login-screen { padding: 20px; overflow-y: auto; display: flex; flex-direction: column; justify-content: center; height: 100%; }
+    .input-group { margin-bottom: 15px; }
+    input { 
+      font-family: 'Press Start 2P', cursive; width: 100%; padding: 15px; 
+      background: #1a252f; border: 3px solid #555; color: #fff; 
+      font-size: 10px; border-radius: 8px; outline: none;
+    }
+    input:focus { border-color: var(--accent-gold); }
+    
+    .btn-main { 
+      font-family: 'Press Start 2P', cursive; width: 100%; padding: 15px; 
+      background: var(--accent-green); border: 4px solid #fff; color: #fff; 
+      font-size: 12px; border-radius: 8px; box-shadow: 0 4px 0 #27ae60; cursor: pointer;
+    }
+    .btn-main:active { transform: translateY(4px); box-shadow: 0 0 0 #27ae60; }
+
+    /* Оформлення аватара */
+    .avatar-setup { background: rgba(0,0,0,0.2); padding: 15px; border-radius: 10px; border: 2px dashed #7f8c8d; text-align: center; }
+    #avatarCanvas { border: 3px solid #fff; width: 96px; height: 96px; background: #000; image-rendering: pixelated; border-radius: 8px;}
+
+    /* === ІГРОВИЙ ЕКРАН === */
+    #game-screen { display: none; flex-direction: column; height: 100%; }
+
+    /* HUD (Верхня панель) */
+    .hud { 
+      background: var(--panel-bg); padding: 10px; border-bottom: 4px solid var(--border-wood); 
+      display: flex; justify-content: space-between; align-items: center; z-index: 10;
+    }
+    .hud-block { display: flex; flex-direction: column; gap: 5px; }
+    .hud-text { font-size: 9px; color: #bdc3c7; }
+    .hud-val { font-size: 12px; color: var(--accent-gold); text-shadow: 1px 1px 0 #000; }
+    
+    /* Шкала сп'яніння */
+    .drunk-meter { width: 100px; height: 12px; background: #000; border: 2px solid #fff; position: relative; border-radius: 4px; overflow: hidden;}
+    #drunk-fill { height: 100%; width: 0%; background: var(--accent-green); transition: 0.3s; }
+
+    /* ІГРОВИЙ СВІТ */
+    .world-view { 
+      flex: 1; position: relative; background-color: #1a1a1a; 
+      background-size: cover; background-position: center; transition: filter 0.5s;
+    }
+    #player-sprite { position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); width: 120px; height: 120px; image-rendering: pixelated; z-index: 5; border-radius: 10px; box-shadow: 0 10px 20px rgba(0,0,0,0.5);}
+    
+    .table-prop { position: absolute; bottom: 0; left: 0; width: 100%; height: 90px; background: #5d4037; border-top: 5px solid #3e2723; z-index: 6; display: none;}
+    
+    /* Бухло на столі */
+    #current-drink-visual { 
+      position: absolute; bottom: 90px; left: 50%; transform: translateX(-50%); 
+      height: 60px; z-index: 7; image-rendering: pixelated; display: none;
+      filter: drop-shadow(0 0 10px rgba(241,196,15,0.8));
+    }
+
+    /* ВЕЛИЧЕЗНА КНОПКА ВИПИТИ */
+    #btn-action-drink {
+      position: absolute; bottom: 100px; left: 50%; transform: translateX(-50%);
+      background: var(--accent-red); padding: 15px 20px; font-size: 12px;
+      color: #fff; border: 4px solid #fff; border-radius: 10px;
+      box-shadow: 0 5px 0 #c0392b; z-index: 20; display: none; animation: pulse 1s infinite;
+      font-family: 'Press Start 2P', cursive; white-space: nowrap; cursor: pointer;
+    }
+    @keyframes pulse { 0% { transform: translateX(-50%) scale(1); } 50% { transform: translateX(-50%) scale(1.05); } 100% { transform: translateX(-50%) scale(1); } }
+
+    #yustya-popup { position: absolute; top: 20%; left: 50%; transform: translate(-50%, -50%); width: 200px; z-index: 8; display: none; image-rendering: pixelated; }
+
+    /* НИЖНЯ ПАНЕЛЬ НАВІГАЦІЇ (Як у додатках) */
+    .bottom-nav { 
+      display: flex; background: var(--panel-bg); border-top: 4px solid var(--border-wood); 
+      height: 70px; z-index: 10;
+    }
+    .nav-item { 
+      flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; 
+      color: #bdc3c7; font-size: 8px; cursor: pointer; border-right: 2px solid #2c3e50;
+    }
+    .nav-item:last-child { border-right: none; }
+    .nav-item:active, .nav-item.active { background: #2c3e50; color: var(--accent-gold); }
+    .nav-icon { font-size: 20px; margin-bottom: 5px; }
+
+    /* === МОДАЛЬНІ ВІКНА (Магазин, Чат) === */
+    .modal { 
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+      background: rgba(0,0,0,0.8); z-index: 50; display: none; 
+      justify-content: center; align-items: center; padding: 20px;
+    }
+    .modal-content { 
+      background: var(--panel-bg); width: 100%; max-height: 80%; 
+      border: 4px solid #fff; border-radius: 12px; display: flex; flex-direction: column;
+      position: relative;
+    }
+    .close-btn { 
+      position: absolute; top: -15px; right: -15px; background: var(--accent-red); 
+      color: #fff; border: 3px solid #fff; width: 35px; height: 35px; 
+      border-radius: 50%; font-size: 14px; font-weight: bold; cursor: pointer;
+    }
+
+    /* Магазин */
+    .shop-list { overflow-y: auto; padding: 15px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .shop-item { 
+      background: #2c3e50; border: 2px solid #7f8c8d; border-radius: 8px; 
+      padding: 10px; text-align: center; cursor: pointer; display: flex; flex-direction: column; align-items: center;
+    }
+    .shop-item:active { background: #1a252f; border-color: var(--accent-gold); }
+    .shop-item img { height: 40px; margin-bottom: 5px; image-rendering: pixelated;}
+    .item-price { color: var(--accent-green); font-size: 10px; margin-top: 5px; }
+
+    /* Чат */
+    .chat-container { display: flex; flex-direction: column; height: 300px; padding: 15px; }
+    .chat-messages { flex: 1; overflow-y: auto; background: #1a1a1a; border: 2px solid #555; border-radius: 8px; padding: 10px; font-size: 9px; line-height: 1.5; margin-bottom: 10px;}
+    .chat-input-row { display: flex; gap: 5px; }
+    .chat-input-row input { margin: 0; padding: 10px; font-size: 9px; }
+    .chat-input-row button { margin: 0; padding: 10px; font-size: 10px; border-radius: 8px; }
+
+    /* Анімації */
+    .floating-text { position: absolute; font-size: 14px; text-shadow: 2px 2px 0 #000; animation: floatUp 1.5s forwards; z-index: 100; pointer-events: none;}
+    @keyframes floatUp { 0% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-80px); } }
+
+  </style>
+</head>
+<body>
+
+<div id="app">
+
+  <div id="login-screen">
+    <h1>🍻 Симулятор за Юстю</h1>
+    <p>Pixel Edition • v2.0</p>
+    
+    <div class="input-group" style="margin-top: 20px;">
+      <input type="text" id="username" placeholder="Введи нікнейм">
+    </div>
+    <div class="input-group">
+      <input type="password" id="password" placeholder="Пароль">
+    </div>
+    
+    <div class="avatar-setup">
+      <h3 style="font-size: 10px; color: #fff;">Твоє обличчя:</h3>
+      <p>Завантаж фото (лише 1 раз)</p>
+      <input type="file" id="imageLoader" accept="image/png, image/jpeg" style="padding: 5px; border:none; background: transparent;">
+      <canvas id="avatarCanvas" width="64" height="64"></canvas>
+      <br>
+      <input type="range" id="pixel-size" min="5" max="100" value="20" style="width: 80%; margin-top: 10px;">
+    </div>
+    
+    <button class="btn-main" onclick="login()" style="margin-top: 20px;">УВІЙТИ В ГРУ</button>
+  </div>
+
+  <div id="game-screen">
+    
+    <div class="hud">
+      <div class="hud-block">
+        <span class="hud-text">Готівка:</span>
+        <span class="hud-val" id="my-money">0 ₴</span>
+      </div>
+      <div class="hud-block" style="align-items: center;">
+        <span class="hud-text">Сп'яніння</span>
+        <div class="drunk-meter"><div id="drunk-fill"></div></div>
+      </div>
+      <div class="hud-block" style="align-items: flex-end;">
+        <span class="hud-text">Всього випито:</span>
+        <span class="hud-val" id="global-drinks">0</span>
+      </div>
+    </div>
+
+    <div class="world-view" id="world-viewport">
+      <img src="texture_yustya.png" id="yustya-popup" alt="ЮСТЯ">
+      <div class="table-prop" id="game-table"></div>
+      
+      <img id="current-drink-visual" src="">
+      
+      <button id="btn-action-drink" onclick="drinkAction()">🍻 ВИПИТИ!</button>
+      
+      <canvas id="player-sprite" width="64" height="64"></canvas>
+    </div>
+
+    <div class="bottom-nav">
+      <div class="nav-item active" onclick="changeLocation('street')" id="nav-street">
+        <div class="nav-icon">🌃</div> Вулиця
+      </div>
+      <div class="nav-item" onclick="changeLocation('bar')" id="nav-bar">
+        <div class="nav-icon">🍺</div> Бар
+      </div>
+      <div class="nav-item" onclick="changeLocation('home')" id="nav-home">
+        <div class="nav-icon">🏠</div> Дім
+      </div>
+      <div class="nav-item" onclick="openModal('shop-modal')" style="background: #27ae60; color: #fff;">
+        <div class="nav-icon">🛒</div> Купити
+      </div>
+      <div class="nav-item" onclick="openModal('chat-modal')" style="background: #2980b9; color: #fff;">
+        <div class="nav-icon">💬</div> Чат
+      </div>
+    </div>
+
+  </div>
+
+  <div id="shop-modal" class="modal">
+    <div class="modal-content">
+      <button class="close-btn" onclick="closeModals()">X</button>
+      <h2>Магазин Бухла</h2>
+      <p>Купи, щоб поставити на стіл</p>
+      <div class="shop-list">
+        <div class="shop-item" onclick="buyItem('Пиво', 50, 'beer.png', 10)">
+          <img src="beer.png" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\'><text y=\'30\' font-size=\'30\'>🍺</text></svg>'">
+          Пиво <div class="item-price">50 ₴</div>
+        </div>
+        <div class="shop-item" onclick="buyItem('Сидр', 70, 'cider.png', 15)">
+          <img src="cider.png" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\'><text y=\'30\' font-size=\'30\'>🍹</text></svg>'">
+          Сидр <div class="item-price">70 ₴</div>
+        </div>
+        <div class="shop-item" onclick="buyItem('Вино', 120, 'wine.png', 25)">
+          <img src="wine.png" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\'><text y=\'30\' font-size=\'30\'>🍷</text></svg>'">
+          Вино <div class="item-price">120 ₴</div>
+        </div>
+        <div class="shop-item" onclick="buyItem('Горілка', 150, 'vodka.png', 40)">
+          <img src="vodka.png" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\'><text y=\'30\' font-size=\'30\'>🍾</text></svg>'">
+          Горілка <div class="item-price">150 ₴</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="chat-modal" class="modal">
+    <div class="modal-content">
+      <button class="close-btn" onclick="closeModals()">X</button>
+      <h2>Чат</h2>
+      <div class="chat-container">
+        <div class="chat-messages" id="chat"></div>
+        <div class="chat-input-row">
+          <input type="text" id="msg" placeholder="Текст...">
+          <button class="btn-main" onclick="sendChatMessage()" style="width: auto; padding: 10px;">ВІДПРАВИТИ</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+  import { getDatabase, ref, push, onChildAdded, set, get, onValue } 
+    from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAaTlpTd5LtiK5TKKpE-guWRwZS0xhHgZY",
+    authDomain: "yustya-simulator.firebaseapp.com",
+    databaseURL: "https://yustya-simulator-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId: "yustya-simulator",
+    storageBucket: "yustya-simulator.firebasestorage.app",
+    messagingSenderId: "649029476959",
+    appId: "1:649029476959:web:521d0a38ad1150cd1431ea"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const chatRef = ref(db, "chat");
+  const globalDrinksRef = ref(db, "global_drinks");
+  
+  let myName = "";
+  let myMoney = 0;
+  let drunkLevel = 0;
+  let currentLoc = 'street';
+  let avatarBase64Data = null;
+  
+  // Змінні для механіки пиття
+  let currentDrinkPower = 0;
+  let currentDrinkName = "";
+
+  // --- ЛОГІН ---
+  window.login = async function() {
+    const user = document.getElementById('username').value.trim();
+    const pass = document.getElementById('password').value.trim();
+    
+    if(!user || !pass) { alert("Введи нік і пароль!"); return; }
+
+    myName = user;
+    const userRef = ref(db, "users/" + user);
+    const snapshot = await get(userRef);
+
+    if(user === "Yustya" && pass === "YustyaLove") {
+      myMoney = 999999; alert("Королева зайшла! 👑");
+    } else if (snapshot.exists()) {
+      if (snapshot.val().password !== pass) { alert("Неправильний пароль!"); return; }
+      myMoney = snapshot.val().money;
+      avatarBase64Data = snapshot.val().avatar;
+    } else {
+      const c = document.getElementById('avatarCanvas');
+      avatarBase64Data = c.toDataURL('image/png');
+      if(avatarBase64Data.length < 5000) { alert("Завантаж фотку!"); return; }
+      myMoney = 200; 
+      set(userRef, { password: pass, money: myMoney, avatar: avatarBase64Data });
+    }
+    
+    updateMoneyUI();
+    
+    // Відображення аватара
+    if(avatarBase64Data) {
+      const gCtx = document.getElementById('player-sprite').getContext('2d');
+      let img = new Image();
+      img.onload = () => gCtx.drawImage(img, 0, 0, 64, 64);
+      img.src = avatarBase64Data;
+    }
+    
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('game-screen').style.display = 'flex';
+    changeLocation('street'); 
+  };
+
+  function updateMoneyUI() { document.getElementById('my-money').innerText = myMoney + " ₴"; }
+  function saveMoney() { if(myName !== "Yustya") set(ref(db, "users/" + myName + "/money"), myMoney); }
+
+  // --- НАВІГАЦІЯ ---
+  window.changeLocation = function(loc) {
+    currentLoc = loc;
+    
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    document.getElementById('nav-' + loc).classList.add('active');
+    
+    const viewport = document.getElementById('world-viewport');
+    const table = document.getElementById('game-table');
+    
+    // Ховаємо напій, якщо змінили локацію
+    document.getElementById('current-drink-visual').style.display = 'none';
+    document.getElementById('btn-action-drink').style.display = 'none';
+
+    if(loc === 'street') {
+      viewport.style.backgroundImage = "url('bg_street.png')";
+      viewport.style.backgroundColor = "#111"; // Запасний фон
+      table.style.display = 'none';
+    } else {
+      viewport.style.backgroundImage = loc === 'bar' ? "url('bg_bar.png')" : "url('bg_home.png')";
+      viewport.style.backgroundColor = loc === 'bar' ? "#2c3e50" : "#8d6e63"; // Запасні фони
+      table.style.display = 'block';
+    }
+  }
+
+  // --- МОДАЛКИ (ВІКНА) ---
+  window.openModal = function(id) { document.getElementById(id).style.display = 'flex'; }
+  window.closeModals = function() { document.querySelectorAll('.modal').forEach(m => m.style.display = 'none'); }
+
+  // --- МАГАЗИН І ПИТТЯ ---
+  window.buyItem = function(name, price, textureFile, power) {
+    if(currentLoc === 'street') { alert("На вулиці пити не можна! Зайди в Бар або Додому."); return; }
+    
+    if(myMoney >= price) {
+      myMoney -= price;
+      updateMoneyUI();
+      saveMoney();
+      closeModals();
+      
+      // Ставимо напій на стіл
+      const drinkImg = document.getElementById('current-drink-visual');
+      drinkImg.src = textureFile;
+      // Якщо картинки нема, показуємо SVG-заглушку
+      drinkImg.onerror = function() { this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\'><text y=\'40\' font-size=\'40\'>🍾</text></svg>' };
+      drinkImg.style.display = 'block';
+      
+      // Зберігаємо дані про напій
+      currentDrinkPower = power;
+      currentDrinkName = name;
+      
+      // ПОКАЗУЄМО ВЕЛИКУ КНОПКУ
+      const btn = document.getElementById('btn-action-drink');
+      btn.innerText = "🍻 ВИПИТИ " + name.toUpperCase();
+      btn.style.display = 'block';
+
+    } else {
+      alert("Не вистачає гривень!");
+    }
+  }
+
+  window.drinkAction = function() {
+    // Ховаємо кнопку і напій
+    document.getElementById('btn-action-drink').style.display = 'none';
+    document.getElementById('current-drink-visual').style.display = 'none';
+    
+    // Гроші
+    myMoney += 10;
+    updateMoneyUI();
+    saveMoney();
+
+    // Сп'яніння
+    drunkLevel += currentDrinkPower;
+    updateDrunkStatus();
+
+    // Анімація Юсті
+    const yustya = document.getElementById('yustya-popup');
+    yustya.style.display = 'block';
+    setTimeout(() => yustya.style.display = 'none', 1500);
+
+    // Плаваючий текст
+    createFloatingText("+10 ₴", "#2ecc71");
+
+    // База і чат
+    get(globalDrinksRef).then((sn) => set(globalDrinksRef, (sn.val() || 0) + 1));
+    push(chatRef, { username: "Система", text: `🍻 ${myName} випив ${currentDrinkName} за Юстю!`, ts: Date.now() });
+  }
+
+  function createFloatingText(text, color) {
+    const world = document.getElementById('world-viewport');
+    const el = document.createElement('div');
+    el.className = 'floating-text';
+    el.style.color = color;
+    el.style.left = '50%';
+    el.style.bottom = '150px';
+    el.innerText = text;
+    world.appendChild(el);
+    setTimeout(() => el.remove(), 1500);
+  }
+
+  // --- СП'ЯНІННЯ ---
+  function updateDrunkStatus() {
+    const fill = document.getElementById('drunk-fill');
+    fill.style.width = Math.min(drunkLevel, 100) + "%";
+    
+    // Зміна кольору шкали
+    if(drunkLevel < 30) fill.style.background = '#2ecc71';
+    else if(drunkLevel < 70) fill.style.background = '#f1c40f';
+    else fill.style.background = '#e74c3c';
+
+    // Тверезіємо
+    if(!window.soberInterval) {
+      window.soberInterval = setInterval(() => {
+        if(drunkLevel > 0) { drunkLevel -= 1; updateDrunkStatus(); }
+      }, 3000);
+    }
+  }
+
+  // --- БАЗА ТА ЧАТ ---
+  onValue(globalDrinksRef, (snapshot) => { document.getElementById('global-drinks').innerText = snapshot.val() || 0; });
+
+  window.sendChatMessage = function() {
+    const input = document.getElementById('msg');
+    if (input.value.trim() !== "") {
+      push(chatRef, { username: myName, text: input.value, ts: Date.now() });
+      input.value = '';
+    }
+  }
+
+  onChildAdded(chatRef, (snapshot) => {
+    const data = snapshot.val();
+    const chat = document.getElementById('chat');
+    chat.innerHTML += `<div style="margin-bottom:8px;"><b><span style="color:#f1c40f">${data.username}</span></b>: <span style="color:#ecf0f1">${data.text}</span></div>`;
+    chat.scrollTop = chat.scrollHeight;
+  });
+
+  // --- ПІКСЕЛІЗАТОР ---
+  const canvas = document.getElementById('avatarCanvas');
+  const ctx = canvas.getContext('2d');
+  const uploader = document.getElementById('imageLoader');
+  const pixelSlider = document.getElementById('pixel-size');
+  let originalImage = new Image();
+
+  uploader.addEventListener('change', function(e){
+    const reader = new FileReader();
+    reader.onload = function(event){
+      originalImage.onload = function(){ pixelate(); }
+      originalImage.src = event.target.result;
+    }
+    reader.readAsDataURL(e.target.files[0]);
+  });
+
+  pixelSlider.addEventListener('input', pixelate);
+
+  function pixelate() {
+    if(!originalImage.src) return;
+    const res = pixelSlider.value / 100; 
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(originalImage, 0, 0, canvas.width * res, canvas.height * res);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(canvas, 0, 0, canvas.width * res, canvas.height * res, 0, 0, canvas.width, canvas.height);
+  }
+
+</script>
+</body>
+</html>
