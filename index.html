@@ -1,4 +1,185 @@
-// --- ЛОГІН ТА ІНІЦІАЛІЗАЦІЯ ---
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Симулятор за Юстю: RPG Edition</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    :root { --primary: #f1c40f; --bg: #111; --ui: #222; }
+    * { box-sizing: border-box; user-select: none; image-rendering: pixelated; }
+    body { font-family: 'Press Start 2P', cursive; background: var(--bg); color: #fff; margin: 0; padding: 0; overflow: hidden; height: 100vh; touch-action: none; }
+    
+    h1, h2 { color: var(--primary); font-size: 14px; text-align: center; line-height: 1.5; }
+    
+    /* ЕКРАН ВХОДУ */
+    #login-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; padding: 20px; background: #1a1a2e; z-index: 1000; position: absolute; width: 100%; top: 0; left: 0;}
+    input { font-family: 'Press Start 2P', cursive; padding: 15px; margin: 10px; width: 90%; max-width: 300px; background: #000; border: 2px solid #555; color: #fff; font-size: 10px; }
+    button { font-family: 'Press Start 2P', cursive; padding: 15px; margin: 10px; background: #27ae60; border: 4px solid #fff; color: #fff; cursor: pointer; font-size: 10px; text-transform: uppercase; }
+    button:active { transform: scale(0.95); }
+    
+    /* ІГРОВИЙ ЕКРАН */
+    #game-container { display: none; width: 100%; height: 100%; position: relative; }
+    canvas { display: block; width: 100%; height: 100%; background: #2c3e50; }
+    
+    /* HUD ТА ІНТЕРФЕЙС */
+    .hud { position: absolute; top: 0; left: 0; width: 100%; padding: 10px; background: rgba(0,0,0,0.7); display: flex; justify-content: space-between; font-size: 10px; pointer-events: none; z-index: 10; border-bottom: 2px solid #555;}
+    .hud span { color: var(--primary); }
+    
+    /* ЧАТ */
+    #chat-wrapper { position: absolute; top: 50px; left: 10px; width: 250px; max-width: 50%; height: 150px; background: rgba(0,0,0,0.5); border: 2px solid #555; display: flex; flex-direction: column; z-index: 10; pointer-events: auto;}
+    #chat-box { flex: 1; overflow-y: auto; padding: 5px; font-size: 8px; color: #ccc; line-height: 1.4; }
+    #chat-input { display: flex; }
+    #chat-input input { padding: 5px; margin: 0; width: 80%; border: none; border-top: 2px solid #555; font-size: 8px;}
+    #chat-input button { padding: 5px; margin: 0; width: 20%; border: none; background: #2980b9; font-size: 8px; border-top: 2px solid #555;}
+
+    /* СПЛИВАЮЧІ КНОПКИ ДІЙ (На екрані) */
+    .action-panel { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #222; border: 4px solid #fff; padding: 15px; text-align: center; display: none; z-index: 50; }
+    #shop-panel { width: 300px; }
+    .shop-item { margin: 10px 0; padding: 10px; background: #111; border: 2px dashed #555; display: flex; justify-content: space-between; align-items: center; cursor: pointer;}
+    .shop-item:hover { border-color: var(--primary); }
+
+    /* МОБІЛЬНЕ УПРАВЛІННЯ (Наекранні кнопки) */
+    .d-pad { position: absolute; bottom: 20px; left: 20px; width: 150px; height: 150px; z-index: 20; }
+    .d-btn { position: absolute; width: 45px; height: 45px; background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.5); border-radius: 10px; color: #fff; font-size: 20px; line-height: 40px; text-align: center; }
+    .d-btn:active { background: rgba(255,255,255,0.5); }
+    .d-up { top: 0; left: 50px; } .d-down { bottom: 0; left: 50px; }
+    .d-left { top: 50px; left: 0; } .d-right { top: 50px; right: 0; }
+    
+    .action-btns { position: absolute; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 10px; z-index: 20;}
+    .btn-game-action { background: rgba(231, 76, 60, 0.8); border: 2px solid #fff; border-radius: 50%; width: 70px; height: 70px; font-size: 10px; display: none; font-family: 'Press Start 2P', cursive; color: #fff; box-shadow: 0 5px 0 #c0392b;}
+    .btn-game-action:active { transform: translateY(5px); box-shadow: none; }
+    #btn-interact { background: rgba(52, 152, 219, 0.8); display: block; box-shadow: 0 5px 0 #2980b9;} /* Кнопка взаємодії завжди є */
+    
+  </style>
+</head>
+<body>
+
+  <div id="login-screen">
+    <h1>🍻 Симулятор за Юстю</h1>
+    <h2>RPG Edition</h2>
+    <input type="text" id="username" placeholder="Нікнейм (Юстя - VIP)">
+    <input type="password" id="password" placeholder="Пароль">
+    
+    <div style="margin-top: 15px; border-top: 2px dashed #444; padding-top: 15px; text-align: center;">
+      <p style="font-size: 8px; color: #aaa;">Твоє обличчя (якщо ти не Юстя):</p>
+      <input type="file" id="imageLoader" accept="image/png, image/jpeg" style="width: auto; border: none; padding: 0;">
+      <canvas id="avatarCanvas" width="64" height="64" style="border: 2px solid #fff; margin-top: 5px; width: 64px; height: 64px; display: inline-block;"></canvas>
+    </div>
+    <button onclick="login()">ГРАТИ</button>
+  </div>
+
+  <div id="game-container">
+    <div class="hud">
+      <div>💰 <span id="ui-money">0</span> ₴</div>
+      <div id="ui-zone">Вулиця</div>
+      <div>🍺 Всього: <span id="ui-global">0</span></div>
+    </div>
+
+    <div id="chat-wrapper">
+      <div id="chat-box"></div>
+      <div id="chat-input">
+        <input type="text" id="msg" placeholder="Текст...">
+        <button onclick="sendMsg()">></button>
+      </div>
+    </div>
+
+    <div id="shop-panel" class="action-panel">
+      <h3>БАРМЕН</h3>
+      <button onclick="closeShop()" style="position: absolute; top: -10px; right: -10px; background: red; padding: 5px;">X</button>
+      <div class="shop-item" onclick="buyDrink('Пиво', 50)"><span>🍺 Пиво</span> <span>50₴</span></div>
+      <div class="shop-item" onclick="buyDrink('Вино', 100)"><span>🍷 Вино</span> <span>100₴</span></div>
+      <div class="shop-item" onclick="buyDrink('Горілка', 150)"><span>🍾 Горілка</span> <span>150₴</span></div>
+    </div>
+
+    <div id="drink-panel" class="action-panel" style="background: transparent; border: none;">
+      <img id="drink-img-display" src="" style="width: 64px; height: 64px; margin-bottom: 10px; animation: bounce 1s infinite;">
+      <br>
+      <button onclick="drinkAction()" style="background: #e74c3c; font-size: 14px; padding: 20px;">ВИПИТИ ЗА ЮСТЮ!</button>
+      <br>
+      <button onclick="closeDrinkPanel()" style="background: #555; padding: 10px; margin-top: 10px;">Сховати</button>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div class="d-pad">
+      <div class="d-btn d-up" id="btn-up">W</div>
+      <div class="d-btn d-down" id="btn-down">S</div>
+      <div class="d-btn d-left" id="btn-left">A</div>
+      <div class="d-btn d-right" id="btn-right">D</div>
+    </div>
+    
+    <div class="action-btns">
+      <button class="btn-game-action" id="btn-drink-hud" onclick="openDrinkPanel()">БУХЛО</button>
+      <button class="btn-game-action" id="btn-interact" onclick="interact()">ДІЯ (E)</button>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, push, onChildAdded, set, get, onValue, onDisconnect } 
+      from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAaTlpTd5LtiK5TKKpE-guWRwZS0xhHgZY",
+      authDomain: "yustya-simulator.firebaseapp.com",
+      databaseURL: "https://yustya-simulator-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "yustya-simulator",
+      storageBucket: "yustya-simulator.firebasestorage.app",
+      messagingSenderId: "649029476959",
+      appId: "1:649029476959:web:521d0a38ad1150cd1431ea"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const playersRef = ref(db, "players");
+    const chatRef = ref(db, "chat");
+    const globalRef = ref(db, "global_drinks");
+
+    // --- СТАН ГРАВЦЯ ---
+    let myName = "";
+    let myMoney = 0;
+    let inventoryDrink = null; // Зберігає куплений напій
+    let avatarBase64 = null;
+    let isYustya = false;
+    
+    // --- ІГРОВИЙ РУШІЙ (CANVAS) ---
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Об'єкти гравців з бази
+    let networkPlayers = {};
+    // Картинки гравців (кеш)
+    let playerImages = {};
+    
+    // Текстура Юсті (Вона повинна лежати в папці з грою)
+    const yustyaImage = new Image();
+    yustyaImage.src = "texture_yustya.png";
+
+    // Локальний гравець
+    let player = {
+      x: 100, y: 200, speed: 4, width: 64, height: 64, currentZone: "street"
+    };
+
+    // Розміри ігрового світу (Віртуальні, скролінг)
+    const worldWidth = 1500;
+    const worldHeight = 600;
+    let cameraX = 0;
+
+    // Зони на карті (X координати)
+    const ZONES = {
+      STREET: { start: 0, end: 500, name: "Вулиця", color: "#1a1a1a" },
+      BAR: { start: 500, end: 1000, name: "Бар 🍺", color: "#34282c" },
+      HOME: { start: 1000, end: 1500, name: "Дім 🏠", color: "#4e342e" }
+    };
+    
+    // Барна стійка
+    const barCounter = { x: 750, y: 150, width: 100, height: 50 };
+
+    // Клавіатура
+    const keys = { w: false, a: false, s: false, d: false, action: false };
+
+    // --- ЛОГІН ТА ІНІЦІАЛІЗАЦІЯ ---
     window.login = async function() {
       const user = document.getElementById('username').value.trim();
       const pass = document.getElementById('password').value.trim();
@@ -22,7 +203,7 @@
         myMoney = snapshot.val().money || 0;
         
         // ФІКС ПОМИЛКИ: Якщо це старий акаунт без збереженої картинки, 
-        // беремо поточну з екрану, щоб не було undefined!
+        // беремо поточну з екрану, щоб не було undefined
         avatarBase64 = snapshot.val().avatar || fallbackAvatar;
         
       } else {
@@ -48,3 +229,236 @@
       startGameLoop();
       setupOnlinePlayers();
     };
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+
+    // --- ОНЛАЙН ГРАВЦІ ---
+    function setupOnlinePlayers() {
+      onValue(playersRef, (snapshot) => {
+        networkPlayers = snapshot.val() || {};
+        // Кешуємо картинки, щоб не перемальовувати щокадру
+        for(let key in networkPlayers) {
+          if(!playerImages[key]) {
+            playerImages[key] = new Image();
+            if(networkPlayers[key].skin === "yustya") {
+              playerImages[key].src = "texture_yustya.png";
+            } else {
+              playerImages[key].src = networkPlayers[key].skin;
+            }
+          }
+        }
+      });
+      
+      onValue(globalRef, (sn) => { document.getElementById('ui-global').innerText = sn.val() || 0; });
+      
+      onChildAdded(chatRef, (sn) => {
+        const d = sn.val();
+        const box = document.getElementById('chat-box');
+        box.innerHTML += `<div><b>${d.username}:</b> ${d.text}</div>`;
+        box.scrollTop = box.scrollHeight;
+      });
+    }
+
+    // --- ІГРОВИЙ ЦИКЛ ---
+    function startGameLoop() {
+      update();
+      draw();
+      requestAnimationFrame(startGameLoop);
+    }
+
+    let lastSync = 0;
+    function update() {
+      let moved = false;
+      // Рух
+      if(keys.w || mobileDpad.up) { player.y -= player.speed; moved = true; }
+      if(keys.s || mobileDpad.down) { player.y += player.speed; moved = true; }
+      if(keys.a || mobileDpad.left) { player.x -= player.speed; moved = true; }
+      if(keys.d || mobileDpad.right) { player.x += player.speed; moved = true; }
+
+      // Обмеження карти
+      if(player.x < 0) player.x = 0;
+      if(player.x > worldWidth - player.width) player.x = worldWidth - player.width;
+      if(player.y < 100) player.y = 100; // Не заходити на небо
+      if(player.y > worldHeight - player.height) player.y = worldHeight - player.height;
+
+      // Визначення зони
+      if(player.x < ZONES.BAR.start) player.currentZone = "street";
+      else if(player.x < ZONES.HOME.start) player.currentZone = "bar";
+      else player.currentZone = "home";
+
+      document.getElementById('ui-zone').innerText = ZONES[player.currentZone.toUpperCase()].name;
+
+      // Камера слідує за гравцем
+      cameraX = player.x - canvas.width / 2 + player.width / 2;
+      if(cameraX < 0) cameraX = 0;
+      if(cameraX > worldWidth - canvas.width) cameraX = worldWidth - canvas.width;
+
+      // Відправка координат на сервер (кожні 50мс, щоб не спамити)
+      if(moved && Date.now() - lastSync > 50) {
+        set(ref(db, "players/" + myName + "/x"), player.x);
+        set(ref(db, "players/" + myName + "/y"), player.y);
+        lastSync = Date.now();
+      }
+    }
+
+    function draw() {
+      // Очистка екрану
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.save();
+      ctx.translate(-cameraX, 0); // Рухаємо камеру
+
+      // Малюємо зони (Тут можна замінити на ctx.drawImage(bg_street) тощо)
+      ctx.fillStyle = ZONES.STREET.color; ctx.fillRect(ZONES.STREET.start, 0, 500, worldHeight);
+      ctx.fillStyle = ZONES.BAR.color; ctx.fillRect(ZONES.BAR.start, 0, 500, worldHeight);
+      ctx.fillStyle = ZONES.HOME.color; ctx.fillRect(ZONES.HOME.start, 0, 500, worldHeight);
+
+      // Малюємо барну стійку
+      ctx.fillStyle = "#8d6e63";
+      ctx.fillRect(barCounter.x, barCounter.y, barCounter.width, barCounter.height);
+      ctx.fillStyle = "#fff"; ctx.font = "10px 'Press Start 2P'";
+      ctx.fillText("БАРМЕН", barCounter.x + 10, barCounter.y + 30);
+
+      // Малюємо ВСІХ гравців онлайн
+      for(let key in networkPlayers) {
+        let p = networkPlayers[key];
+        // Тінь
+        ctx.fillStyle = "rgba(0,0,0,0.5)";
+        ctx.beginPath(); ctx.ellipse(p.x + 32, p.y + 60, 20, 10, 0, 0, Math.PI*2); ctx.fill();
+        
+        // Скін гравця (або Юсті)
+        if(playerImages[key]) {
+          ctx.drawImage(playerImages[key], p.x, p.y, 64, 64);
+        } else {
+          ctx.fillStyle = "gray"; ctx.fillRect(p.x, p.y, 64, 64);
+        }
+        
+        // Ім'я над головою
+        ctx.fillStyle = (key === myName) ? "#4CAF50" : (key === "Yustya" ? "#e74c3c" : "#fff");
+        ctx.font = "10px 'Press Start 2P'"; ctx.textAlign = "center";
+        ctx.fillText(key, p.x + 32, p.y - 10);
+      }
+
+      ctx.restore();
+    }
+
+    // --- ВЗАЄМОДІЯ ТА МЕХАНІКА ---
+    window.interact = function() {
+      // 1. Якщо біля бармена - відкрити магазин
+      let distToBar = Math.hypot((player.x + 32) - (barCounter.x + 50), (player.y + 32) - (barCounter.y + 25));
+      if(distToBar < 100 && player.currentZone === "bar") {
+        document.getElementById('shop-panel').style.display = 'block';
+        return;
+      }
+      
+      // 2. Якщо є інші гравці поруч - Запросити випити!
+      for(let key in networkPlayers) {
+        if(key !== myName) {
+          let otherP = networkPlayers[key];
+          let dist = Math.hypot(player.x - otherP.x, player.y - otherP.y);
+          if(dist < 80) { // Якщо стоїте впритул
+             if(inventoryDrink) {
+                 push(chatRef, { username: "Система", text: `🍻 ${myName} та ${key} цокнулися і п'ють разом!`, ts: Date.now() });
+                 drinkAction(); // Випиваєш свій напій
+             } else {
+                 push(chatRef, { username: myName, text: `Ей, ${key}, пішли вип'ємо за Юстю!`, ts: Date.now() });
+             }
+             return;
+          }
+        }
+      }
+    }
+
+    window.closeShop = function() { document.getElementById('shop-panel').style.display = 'none'; }
+    
+    window.buyDrink = function(name, price) {
+      if(myMoney >= price) {
+        myMoney -= price; updateUI(); saveUser();
+        inventoryDrink = name;
+        document.getElementById('btn-drink-hud').style.display = 'block'; // З'являється кнопка БУХЛО
+        closeShop();
+        push(chatRef, { username: "Система", text: `${myName} купив ${name}.`, ts: Date.now() });
+      } else { alert("Нема грошей!"); }
+    }
+
+    window.openDrinkPanel = function() {
+      if(player.currentZone === "street") { alert("На вулиці не можна пити! Зайди в Бар або Додому."); return; }
+      document.getElementById('drink-panel').style.display = 'block';
+      // Емодзі замість текстур пляшок поки що
+      let emoji = inventoryDrink === "Пиво" ? "🍺" : (inventoryDrink === "Вино" ? "🍷" : "🍾");
+      document.getElementById('drink-img-display').src = `data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg"><text y="50" font-size="50">${emoji}</text></svg>`;
+    }
+    
+    window.closeDrinkPanel = function() { document.getElementById('drink-panel').style.display = 'none'; }
+
+    window.drinkAction = function() {
+      myMoney += 10; updateUI(); saveUser();
+      get(globalRef).then(sn => set(globalRef, (sn.val()||0)+1));
+      
+      push(chatRef, { username: "Система", text: `🍻 ${myName} випив ${inventoryDrink} ЗА ЮСТЮ!`, ts: Date.now() });
+      
+      inventoryDrink = null;
+      document.getElementById('btn-drink-hud').style.display = 'none';
+      closeDrinkPanel();
+    }
+
+    // Збереження
+    function updateUI() { document.getElementById('ui-money').innerText = myMoney; }
+    function saveUser() { if(!isYustya) set(ref(db, "users/" + myName + "/money"), myMoney); }
+
+    // Чат
+    window.sendMsg = function() {
+      const el = document.getElementById('msg');
+      if(el.value.trim() !== "") { push(chatRef, { username: myName, text: el.value, ts: Date.now() }); el.value = ''; }
+    }
+
+    // --- УПРАВЛІННЯ ---
+    // ПК Клавіатура
+    window.addEventListener('keydown', e => {
+      if(document.activeElement === document.getElementById('msg')) return; // Якщо пишеш в чат
+      if(e.key === 'w' || e.key === 'W') keys.w = true;
+      if(e.key === 's' || e.key === 'S') keys.s = true;
+      if(e.key === 'a' || e.key === 'A') keys.a = true;
+      if(e.key === 'd' || e.key === 'D') keys.d = true;
+      if(e.key === 'e' || e.key === 'E') interact(); // Кнопка дії
+    });
+    window.addEventListener('keyup', e => {
+      if(e.key === 'w' || e.key === 'W') keys.w = false;
+      if(e.key === 's' || e.key === 'S') keys.s = false;
+      if(e.key === 'a' || e.key === 'A') keys.a = false;
+      if(e.key === 'd' || e.key === 'D') keys.d = false;
+    });
+
+    // Мобільний D-PAD
+    const mobileDpad = { up: false, down: false, left: false, right: false };
+    function bindTouch(id, prop) {
+      const el = document.getElementById(id);
+      el.addEventListener('touchstart', (e)=>{ e.preventDefault(); mobileDpad[prop] = true; });
+      el.addEventListener('touchend', (e)=>{ e.preventDefault(); mobileDpad[prop] = false; });
+    }
+    bindTouch('btn-up', 'up'); bindTouch('btn-down', 'down');
+    bindTouch('btn-left', 'left'); bindTouch('btn-right', 'right');
+
+    // Пікселізатор
+    const cvs = document.getElementById('avatarCanvas');
+    const cctx = cvs.getContext('2d');
+    document.getElementById('imageLoader').addEventListener('change', function(e){
+      const reader = new FileReader();
+      reader.onload = function(event){
+        let img = new Image();
+        img.onload = function(){ 
+          cctx.clearRect(0,0,64,64); 
+          cctx.imageSmoothingEnabled = false;
+          // Пікселізуємо (малюємо зменшене, потім розтягуємо)
+          cctx.drawImage(img, 0, 0, 16, 16);
+          cctx.drawImage(cvs, 0, 0, 16, 16, 0, 0, 64, 64);
+        }
+        img.src = event.target.result;
+      }
+      reader.readAsDataURL(e.target.files[0]);
+    });
+  </script>
+</body>
+</html>
